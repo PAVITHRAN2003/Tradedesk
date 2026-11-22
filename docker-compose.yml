@@ -1,0 +1,39 @@
+services:
+  mongo:
+    image: mongo:7                  # ready-made image, no Dockerfile needed
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db         # named volume: data survives container deletion
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend                # build from backend/Dockerfile
+    restart: unless-stopped
+    env_file: ./backend/.env        # your secrets: JWT_SECRET, GROQ_API_KEY, etc.
+    environment:                    # these override env_file, so Atlas becomes the local Mongo
+      MONGO_URL: mongodb://mongo:27017
+      COOKIE_SECURE: "false"
+      CORS_ORIGINS: http://localhost:3000
+    ports:
+      - "8000:8000"                 # host:container. Optional, but handy for /docs
+    depends_on:
+      mongo:
+        condition: service_healthy  # wait until Mongo actually answers
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    environment:
+      BACKEND_URL: http://backend:8000
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  mongo_data:
