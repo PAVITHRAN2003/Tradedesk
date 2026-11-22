@@ -19,6 +19,16 @@ app.add_middleware(
     CORSMiddleware, allow_origins=[o.strip() for o in settings.cors_origins.split(",")],
     allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def no_store(request, call_next):
+    resp = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
 app.include_router(auth.router)
 app.include_router(portfolio.router)
 app.include_router(agent.router)
